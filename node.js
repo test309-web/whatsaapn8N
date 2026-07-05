@@ -1,3 +1,4 @@
+// node.js - ملف الاتصال الرئيسي
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -6,10 +7,9 @@ const {
 
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
-const axios = require("axios");
 
-// الرابط الصحيح ديال Webhook
-const WEBHOOK_URL = "https://abdouyu-n8n-free.hf.space/webhook/4b9b3451-8983-476c-a3e2-fac32081e9e1";
+// استدعاء منطق البوت من ملف منفصل
+const { handleMessage } = require("./bot");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
@@ -61,78 +61,23 @@ async function startBot() {
     console.log("📩", jid, ":", text);
 
     try {
-      // ✅ LOG قبل الإرسال
-      console.log("🚀 Sending POST to:", WEBHOOK_URL);
-      console.log("📦 Payload:", {
-        numero: jid,
-        message: text,
-        timestamp: new Date().toISOString()
-      });
+      // استدعاء منطق البوت من bot.js
+      const reply = await handleMessage(jid, text);
 
-      // إرسال إلى Webhook
-      const response = await axios.post(
-        WEBHOOK_URL,
-        {
-          numero: jid,
-          message: text,
-          timestamp: new Date().toISOString()
-        },
-        {
-          timeout: 30000,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log("✅ Webhook response status:", response.status);
-      console.log("✅ Webhook response data:", response.data);
-
-      // معالجة الرد
-      let replyText = "✅ تم استلام رسالتك.";
-
-      if (response.data) {
-        if (typeof response.data === 'string') {
-          replyText = response.data;
-        } else if (response.data.reply) {
-          replyText = response.data.reply;
-        } else if (response.data.message) {
-          replyText = response.data.message;
-        } else if (response.data.text) {
-          replyText = response.data.text;
-        } else if (response.data.output) {
-          replyText = response.data.output;
-        } else {
-          const dataStr = JSON.stringify(response.data);
-          if (dataStr.length < 200) {
-            replyText = dataStr;
-          }
-        }
+      // إرسال الرد إلى WhatsApp
+      if (reply) {
+        await sock.sendMessage(jid, {
+          text: reply,
+        });
       }
-
-      await sock.sendMessage(jid, {
-        text: replyText
-      });
-
     } catch (error) {
-      console.error("❌ Error:", error.message);
-      
-      if (error.response) {
-        console.error("❌ Status:", error.response.status);
-        console.error("❌ Data:", error.response.data);
-      } else if (error.request) {
-        console.error("❌ No response received from server");
-      } else {
-        console.error("❌ Request error:", error.message);
-      }
-
+      console.error("❌ Error processing message:", error.message);
       await sock.sendMessage(jid, {
-        text: "❌ عذراً، حدث خطأ في معالجة رسالتك. الرجاء المحاولة مرة أخرى."
+        text: "❌ عذراً، حدث خطأ في معالجة رسالتك. الرجاء المحاولة مرة أخرى.",
       });
     }
   });
 }
 
-console.log("🤖 WhatsApp Bot");
-console.log(`📡 Webhook: ${WEBHOOK_URL}`);
+console.log("🤖 WhatsApp Bot - Israa Mode");
 startBot();

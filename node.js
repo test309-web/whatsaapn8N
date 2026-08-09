@@ -1,4 +1,3 @@
-// node.js - ملف الاتصال الرئيسي
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -8,8 +7,7 @@ const {
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
 
-// استدعاء منطق البوت من ملف منفصل
-const { handleMessage } = require("./bot");
+const { handleMessage, resetSentUsers } = require("./bot");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
@@ -28,6 +26,8 @@ async function startBot() {
 
     if (connection === "open") {
       console.log("✅ WhatsApp Connected");
+      console.log("📤 البوت جاهز للإرسال التلقائي...");
+      console.log("📌 أي رسالة تصل = إرسال كل شيء دفعة واحدة");
     }
 
     if (connection === "close") {
@@ -58,26 +58,26 @@ async function startBot() {
       msg.message.extendedTextMessage?.text ||
       "";
 
-    console.log("📩", jid, ":", text);
-
     try {
-      // استدعاء منطق البوت من bot.js
-      const reply = await handleMessage(jid, text);
-
-      // إرسال الرد إلى WhatsApp
-      if (reply) {
-        await sock.sendMessage(jid, {
-          text: reply,
-        });
-      }
+      // استدعاء البوت (يرسل كل شيء تلقائياً)
+      await handleMessage(sock, jid, text);
+      // ما كاينش رد إضافي
     } catch (error) {
-      console.error("❌ Error processing message:", error.message);
-      await sock.sendMessage(jid, {
-        text: "❌ عذراً، حدث خطأ في معالجة رسالتك. الرجاء المحاولة مرة أخرى.",
-      });
+      console.error("❌ Error:", error.message);
     }
   });
+
+  // إعادة تعيين المستخدمين كل ساعة (اختياري)
+  setInterval(() => {
+    resetSentUsers();
+    console.log("🔄 تم إعادة تعيين قائمة المستخدمين (كل ساعة)");
+  }, 3600000);
 }
 
 console.log("🤖 WhatsApp Bot - Israa Mode");
+console.log("📤 الإرسال التلقائي بدون انتظار:");
+console.log("   1. رسالة ترحيب");
+console.log("   2. رسالة طلب معلومات");
+console.log("   3. كل الفيديوهات");
+console.log("   4. رسالة نهائية");
 startBot();
